@@ -294,6 +294,84 @@
     line-height:1.5;
   }
 
+  /* ---- Auth gate ---- */
+  .gate{
+    min-height:70vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:6px;
+  }
+  .gate h1{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:26px;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .gate p{
+    color:var(--muted);
+    font-size:15px;
+    margin:0 0 18px;
+    max-width:280px;
+  }
+  .btn-google{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--display);
+    font-weight:600;
+    font-size:15px;
+    color:var(--ink);
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:13px 20px;
+    min-height:48px;
+    cursor:pointer;
+  }
+  .btn-google:active{ transform:scale(0.99); }
+  .btn-google svg{ width:18px; height:18px; }
+
+  .acct{
+    margin-top:34px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    color:var(--muted);
+    flex-wrap:wrap;
+  }
+  .acct .who{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .acct button{
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    font-family:var(--body);
+    font-size:13px;
+    padding:7px 12px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .uid{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 10px;
+    margin-top:10px;
+    word-break:break-all;
+    display:none;
+  }
+  .uid.show{ display:block; }
+  .uid b{ color:var(--ink); }
+
   /* ---- Edit sheet ---- */
   .scrim{
     position:fixed;
@@ -434,6 +512,16 @@
 </head>
 <body>
   <div class="wrap">
+    <div class="gate" id="gate" style="display:none">
+      <h1>Tasks</h1>
+      <p>Sign in to reach your tasks on any device.</p>
+      <button class="btn-google" id="signInBtn">
+        <svg viewBox="0 0 18 18"><path fill="#4285F4" d="M17.6 9.2c0-.6-.05-1.2-.15-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8l3-2.3z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+
+    <div id="appRoot" style="display:none">
     <header class="hero">
       <div class="eyebrow">Your day</div>
       <div class="hero-date">
@@ -456,6 +544,14 @@
     <main id="list">
       <div class="loading">Connecting…</div>
     </main>
+
+    <div class="acct">
+      <span class="who" id="whoAmI"></span>
+      <button id="showUid">Show ID</button>
+      <button id="signOutBtn">Sign out</button>
+    </div>
+    <div class="uid" id="uidBox"></div>
+    </div>
   </div>
 
   <div class="scrim" id="scrim"></div>
@@ -480,6 +576,10 @@
     getFirestore, collection, addDoc, onSnapshot,
     doc, updateDoc, deleteDoc, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup,
+    signOut, onAuthStateChanged, setPersistence, browserLocalPersistence
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBPSzwW-T23DskEBz9c5l5tvYltBCJpCyg",
@@ -614,17 +714,57 @@
     });
   }
 
+  // ---- auth gate ----
+  const auth = getAuth(app);
+  const gate = document.getElementById("gate");
+  const appRoot = document.getElementById("appRoot");
+  let unsub = null;
+
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+  document.getElementById("signInBtn").addEventListener("click", async () => {
+    try{
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    }catch(e){
+      alert("Sign-in failed. " + (e.code || "") + " " + (e.message || ""));
+    }
+  });
+
+  document.getElementById("signOutBtn").addEventListener("click", () => signOut(auth));
+
+  document.getElementById("showUid").addEventListener("click", () => {
+    const box = document.getElementById("uidBox");
+    box.classList.toggle("show");
+    if (auth.currentUser) box.innerHTML = "Your user ID:<br><b>" + auth.currentUser.uid + "</b>";
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user){
+      gate.style.display = "none";
+      appRoot.style.display = "block";
+      document.getElementById("whoAmI").textContent = user.email || "Signed in";
+      startSync();
+    } else {
+      if (unsub){ unsub(); unsub = null; }
+      appRoot.style.display = "none";
+      gate.style.display = "flex";
+    }
+  });
+
   // ---- live sync ----
   let current = [];
-  onSnapshot(tasksCol, (snap) => {
-    current = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    render(current);
-  }, (err) => {
-    listEl.innerHTML =
-      '<div class="errbox">Could not reach the database.<br>' +
-      (err && err.code ? "(" + err.code + ") " : "") +
-      'If this says permission-denied, the Firestore rules have expired or locked — tell me and we\'ll fix them.</div>';
-  });
+  function startSync(){
+    if (unsub) return;
+    unsub = onSnapshot(tasksCol, (snap) => {
+      current = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render(current);
+    }, (err) => {
+      listEl.innerHTML =
+        '<div class="errbox">Could not reach the database.<br>' +
+        (err && err.code ? "(" + err.code + ") " : "") +
+        'If this says permission-denied, the Firestore rules need updating — tell me and we\'ll fix them.</div>';
+    });
+  }
 
   // ---- add ----
   const textEl = document.getElementById("taskText");
