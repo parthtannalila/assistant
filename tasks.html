@@ -396,8 +396,10 @@
     transform:translateY(102%);
     transition:transform .22s cubic-bezier(.32,.72,0,1);
     box-shadow:0 -8px 30px rgba(27,30,26,0.12);
+    pointer-events:none;
+    visibility:hidden;
   }
-  .sheet.open{ transform:translateY(0); }
+  .sheet.open{ transform:translateY(0); pointer-events:auto; visibility:visible; }
   @media (min-width:560px){
     .sheet{
       left:50%; right:auto; bottom:auto;
@@ -409,7 +411,7 @@
       border:1px solid var(--line);
       transition:transform .18s ease, opacity .18s ease;
     }
-    .sheet.open{ transform:translate(-50%, -50%) scale(1); opacity:1; }
+    .sheet.open{ transform:translate(-50%, -50%) scale(1); opacity:1; pointer-events:auto; visibility:visible; }
   }
 
   .sheet-grip{
